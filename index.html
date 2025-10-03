@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Astro Allowance • VIP Sponsor Console</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #0f1630;
+      --text: #eaf1ff;
+      --muted: #9fb0ff;
+      --accent: #7aa2ff;
+      --glow: 0 0 30px rgba(122,162,255,.35);
+      --radius: 20px;
+    }
+    body{
+      margin:0; font-family:Inter, system-ui, sans-serif;
+      color:var(--text); background:radial-gradient(1200px 800px at 70% -10%, #20306b33 0%, #000 60%), var(--bg);
+    }
+    .wrapper{max-width:1100px; margin:40px auto; padding:0 20px}
+    .card{background:linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid #263064; border-radius:var(--radius); box-shadow:var(--glow); padding:18px; margin-bottom:20px}
+    h2{margin-top:0; font-size:18px; color:#d7e2ff}
+    p.desc{color:var(--muted); font-size:14px; margin:6px 0 12px}
+    .btn{cursor:pointer; border:none; border-radius:14px; padding:10px 14px; background:#1b2a57; color:var(--text); font-weight:600;}
+    .btn-accent{background:linear-gradient(90deg,#6b8cff,#8aa5ff)}
+    canvas{max-width:100%}
+    .modal{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center;}
+    .modal.open{display:flex}
+    .modal .card{max-width:520px;}
+    .chip{display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid #3b4a93; background:rgba(58,73,147,.2); color:#c9d7ff; font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <!-- Birthday Entry -->
+    <div id="entryCard" class="card">
+      <h2>Enter Your Celestial Key</h2>
+      <p class="desc">Your birthday unlocks your personalized sponsor dashboard 🌌</p>
+      <input id="birthInput" type="date" />
+      <button id="enterBtn" class="btn-accent btn">Unlock</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" style="display:none">
+      <div class="card">
+        <h2>🌞 Star Signs Profile</h2>
+        <p class="desc">Here’s your cosmic starter pack — your Big Three placements. These explain your vibe, your instincts, and why this dashboard even exists.</p>
+        <ul>
+          <li><strong>Sagittarius Sun:</strong> The Adventurer — bold, generous, loves humor.</li>
+          <li><strong>Pisces Moon:</strong> The Dreamer — compassionate, soft-hearted, loves meaning.</li>
+          <li><strong>Capricorn Rising:</strong> The Boss — polished, responsible, secretly loves dashboards.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="luckSection">
+        <h2>🍀 Luck Forecast</h2>
+        <p class="desc">A real-time reading of your fortune field. Wealth Flow, Karma Balance, and VIP Sponsor Aura shift daily. Pro tip: activating your sibling-support powers boosts all of them instantly.</p>
+        <canvas id="radar"></canvas>
+      </div>
+
+      <div class="card" id="nudgeCard" style="display:none">
+        <h2 id="nudgeTitle">💸 Boost Your Luck</h2>
+        <p class="desc" id="nudgeDesc">Every month the cosmos opens a window for generosity. Transfer energy (aka allowance 💳) to bless your sibling. In return, you gain +10 Cosmic Luck and +5 Family Productivity.</p>
+        <button id="openPayment" class="btn-accent btn">Activate Blessing</button>
+        <span id="maxBadge" class="chip" style="display:none; margin-left:10px">Luck: MAX ⭐️</span>
+      </div>
+
+      <div class="card">
+        <h2>📊 Sponsor Impact</h2>
+        <p class="desc">Your support isn’t just cosmic — it’s measurable. Compare your protégé’s progress with your blessing versus the baseline productivity without it.</p>
+        <canvas id="line"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>🔮 Daily Horoscope</h2>
+        <p class="desc">Today’s personalized energy forecast, tuned to your Sagittarius Sun, Pisces Moon, and Capricorn Rising. A little wisdom, a little humor, and sometimes a not-so-subtle reminder to text your sibling.</p>
+        <div id="horoText" style="white-space:pre-wrap; line-height:1.5"></div>
+        <button id="refreshHoro" class="btn">New Reading ✨</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal" id="paymentModal">
+    <div class="card">
+      <h2>VIP Transfer Details</h2>
+      <pre id="paymentBody">Name on the account: Potcharapan Chumrak
+IBAN: GB18LOYD77223775601668
+BIC/SWIFT: LOYDGB21B60
+Ref: ⭐️ Allowance</pre>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap">
+        <button id="copyDetails" class="btn-accent btn">Copy details</button>
+        <button id="didTransfer" class="btn">I’ve boosted my sibling’s energy ✨</button>
+        <span id="copyOk" class="chip" style="display:none">Copied ✅</span>
+      </div>
+      <div style="margin-top:10px" class="desc">International transfers may need the BIC/SWIFT code. Use the reference so your protégé can track your cosmic blessing ✨</div>
+      <button id="closeModal" class="btn" style="margin-top:12px">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Entry / Gating ----------
+    const entryCard = document.getElementById('entryCard');
+    const dash = document.getElementById('dashboard');
+    const birthInput = document.getElementById('birthInput');
+    document.getElementById('enterBtn').onclick = () => {
+      if (birthInput.value) {
+        entryCard.style.display = 'none';
+        dash.style.display = 'block';
+        initDashboard();
+      } else { alert('Please enter your birthday 🌌'); }
+    };
+
+    // ---------- Horoscope (long-form, conversational) ----------
+    const LONG_HOROS = [
+`Good morning, Cosmic Sponsor. Sagittarius sunshine is warming your horizon today, and your Pisces Moon is in a mood to romanticize even spreadsheets. That’s perfect, because your Capricorn Rising wants one tiny, practical win before lunch. Take the bold route, say the kind thing, and hydrate. If you choose to bless your protégé, expect an immediate uptick in luck and a suspiciously smooth day.`,
+`Hello stargazer ✨ Today reads like this: curiosity high, distractions low, and your patience surprisingly steady (Cap Rising doing overtime). Follow the fun, but give it a container — thirty focused minutes will open a bigger door than three hours of multitasking. A small act of generosity sends a signal to the universe: “We’re investing in momentum.” Watch how quickly the green lights appear.`,
+`Your chart’s giving “confident and cozy.” You’re allowed to do the ambitious thing *and* the gentle thing in the same day. Sagittarius energy wants a quest; Pisces wants kindness; Capricorn wants receipts. Make one promise to yourself and ship it. If you decide to activate the Blessing, call it a ritual: support ➜ gratitude ➜ productivity. The cycle loves you back.`,
+`Forecast: lighthearted courage with pockets of serendipity. Strike up the playful conversation, book the mini-adventure, and don’t overthink the to‑do list — just start. Keep an eye out for a lucky timing window (you’ll feel it). When generosity is your opening move, the rest of the board rearranges in your favor.`,
+`Cosmic memo for you: progress thrives on tiny commitments repeated with style. Laugh at a problem, then give it structure — that’s your Sag/Cap magic. Your Pisces Moon would love a wholesome moment tonight; give it a soundtrack. If you decide to send the allowance today, consider it an offering to future victories. The universe has range, and so do you.`
+    ];
+    const pickLong = () => LONG_HOROS[Math.floor(Math.random() * LONG_HOROS.length)];
+
+    // ---------- Init Dashboard ----------
+    function initDashboard(){
+      document.getElementById('horoText').innerText = pickLong();
+      document.getElementById('refreshHoro').onclick = () => {
+        document.getElementById('horoText').innerText = pickLong();
+      };
+      // Show nudge on day 3 (adjust as needed)
+      if (new Date().getDate() === 3) {
+        document.getElementById('nudgeCard').style.display = 'block';
+      }
+      buildRadar();
+      buildLine();
+      runTests(); // basic runtime tests
+    }
+
+    // ---------- Radar chart (Luck) ----------
+    function buildRadar(){
+      const ctx = document.getElementById('radar');
+      if (window.radarChart) { window.radarChart.destroy(); }
+      window.radarChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['Wealth Flow','Karma Balance','Sponsor Aura','Adventure Luck','Coffee Efficiency','Productivity'],
+          datasets: [{
+            label: 'Current Luck',
+            data: [80,72,88,90,66,78],
+            backgroundColor: 'rgba(122,162,255,0.3)',
+            borderColor: '#8aa5ff',
+            pointBackgroundColor: '#8aa5ff'
+          }]
+        },
+        options: {
+          responsive: true,
+          animation: { duration: 600 },
+          plugins: { legend: { labels: { color: '#dfe8ff' } } },
+          scales: {
+            r: {
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              ticks: { stepSize: 20, color: '#cdd8ff', showLabelBackdrop: false },
+              angleLines: { color: '#2a336a' },
+              grid: { color: '#2a336a' },
+              pointLabels: { color: '#cdd8ff' }
+            }
+          }
+        }
+      });
+    }
+
+    // Boost to MAX after transfer confirmation
+    function boostLuckToMax(){
+      if (window.radarChart) {
+        const d = window.radarChart.data.datasets[0].data;
+        for (let i = 0; i < d.length; i++) { d[i] = 100; }
+        window.radarChart.update();
+      }
+      // Show MAX badge and thank-you message
+      document.getElementById('maxBadge').style.display = 'inline-block';
+      document.getElementById('nudgeTitle').textContent = '🌟 Blessing Activated — Thank You!';
+      document.getElementById('nudgeDesc').textContent = 'Your generosity just supercharged the cosmos. Luck has been boosted to MAX for this cycle. You’re officially the MVP Sponsor.';
+      confetti();
+      // Scroll to Luck Forecast so she sees it
+      document.getElementById('luckSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Confetti
+    function confetti(){
+      for (let i = 0; i < 100; i++) {
+        const s = document.createElement('div');
+        const size = 6 + Math.random() * 8;
+        s.style.cssText = `position:fixed;top:-20px;left:${Math.random()*100}vw;width:${size}px;height:${size}px;background:hsl(${Math.random()*360} 80% 60%);opacity:.9;border-radius:2px;z-index:200;`;
+        document.body.appendChild(s);
+        const delay = Math.random() * 200;
+        setTimeout(() => {
+          s.animate([
+            { transform: 'translateY(0)' },
+            { transform: `translateY(${100 + Math.random() * 60}vh) rotate(${Math.random() * 360}deg)` }
+          ], { duration: 1400 + Math.random() * 1400, easing: 'cubic-bezier(.2,.7,.2,1)' }).onfinish = () => s.remove();
+        }, delay);
+      }
+    }
+
+    // ---------- Line chart (Impact: With Blessing vs Baseline) ----------
+    function buildLine(){
+      new Chart(document.getElementById('line'), {
+        type: 'line',
+        data: {
+          labels: ['Week 1','Week 2','Week 3','Week 4'],
+          datasets: [
+            { label: 'With Sponsor Blessing', data: [62, 74, 86, 95], borderColor: '#8aa5ff', borderWidth: 2, tension: .35 },
+            { label: 'Baseline Productivity', data: [55, 58, 60, 63], borderColor: '#4a5aa3', borderDash: [6,6], borderWidth: 2, tension: .35 }
+          ]
+        },
+        options: {
+          plugins: { legend: { labels: { color: '#dfe8ff' } } },
+          scales: {
+            x: { ticks: { color: '#bcd0ff' }, grid: { color: '#1b2453' } },
+            y: { beginAtZero: true, max: 100, ticks: { color: '#bcd0ff' }, grid: { color: '#1b2453' } }
+          }
+        }
+      });
+    }
+
+    // ---------- Payment modal ----------
+    document.getElementById('openPayment').onclick = () => {
+      document.getElementById('paymentModal').classList.add('open');
+    };
+    document.getElementById('closeModal').onclick = () => {
+      document.getElementById('paymentModal').classList.remove('open');
+      document.getElementById('copyOk').style.display = 'none';
+    };
+    document.getElementById('copyDetails').onclick = async () => {
+      const txt = document.getElementById('paymentBody').innerText;
+      try {
+        await navigator.clipboard.writeText(txt);
+        document.getElementById('copyOk').style.display = 'inline-block';
+      } catch (e) {
+        alert('Copy failed. You can copy manually.');
+      }
+    };
+    document.getElementById('didTransfer').onclick = () => {
+      document.getElementById('paymentModal').classList.remove('open');
+      boostLuckToMax();
+    };
+
+    // ---------- Minimal Runtime Tests (console) ----------
+    function assert(name, condition){ if(!condition) throw new Error('Test failed: ' + name); }
+    function runTests(){
+      try{
+        assert('radar canvas exists', !!document.getElementById('radar'));
+        assert('line canvas exists', !!document.getElementById('line'));
+        assert('horoscope container exists', !!document.getElementById('horoText'));
+        assert('nudge button exists', !!document.getElementById('openPayment'));
+        // Chart data sanity
+        assert('radar dataset length', window.radarChart.data.datasets[0].data.length === 6);
+        assert('radar max is 100', window.radarChart.options.scales.r.max === 100);
+        
+        // Modal open/close cycle
+        document.getElementById('openPayment').click();
+        assert('modal opened', document.getElementById('paymentModal').classList.contains('open'));
+        document.getElementById('closeModal').click();
+        assert('modal closed', !document.getElementById('paymentModal').classList.contains('open'));
+        console.log('%cAll basic UI tests passed','color:#7aa2ff');
+      }catch(err){
+        console.error('UI tests reported an issue:', err);
+      }
+    }
+  </script>
+</body>
+</html>
